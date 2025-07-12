@@ -3,10 +3,11 @@ import { Pressable, Text, TextInput, View, StyleSheet, ScrollView, Alert } from 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 
+const API_URL = "http://localhost:5000/api";
+
 export const CreateExpenses = () => {
   const navigation = useNavigation();
 
-  //estados de form
   const [formData, setFormData] = useState({
     category: '',
     description: '',
@@ -14,13 +15,13 @@ export const CreateExpenses = () => {
     date: new Date()
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
-  // Manejador de cambios genérico
+  //manejador de cambios genérico
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
-
-  // Manejador del selector de fecha
+//'' '' fecha
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
     if (event.type === 'set' && selectedDate) {
@@ -28,10 +29,12 @@ export const CreateExpenses = () => {
     }
   };
 
-  // Envío del formulario
   const handleSubmit = async () => {
-    const { category, description, amount } = formData;
+    if (isSubmitting) return; //evita múltiples envíos
     
+    const { category, description, amount, date } = formData;
+    
+    // Validaciones
     if (!category || !description || !amount) {
       Alert.alert('Error', 'Todos los campos son obligatorios');
       return;
@@ -42,23 +45,31 @@ export const CreateExpenses = () => {
       return;
     }
 
+    setIsSubmitting(true); 
+
     try {
-      const response = await fetch('//conexion create', {
+      const response = await fetch(`${API_URL}/create`, { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           category,
           description,
           amount: parseFloat(amount),
-          created_at: formData.date.toISOString().split('T')[0]
+          created_at: date.toISOString().split('T')[0] //formato YYYY-MM-DD
         }),
       });
 
       const data = await response.json();
       
-      if (!response.ok) throw new Error(data.error || 'Error al registrar');
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al registrar el gasto');
+      }
 
       Alert.alert('Éxito', 'Gasto registrado correctamente');
+      
+      //resetear formulario
       setFormData({
         category: '',
         description: '',
@@ -67,7 +78,10 @@ export const CreateExpenses = () => {
       });
       
     } catch (error) {
-      Alert.alert('Error', error.message || 'Ocurrió un error');
+      console.error('Error al crear gasto:', error);
+      Alert.alert('Error', error.message || 'Ocurrió un error al registrar el gasto');
+    } finally {
+      setIsSubmitting(false); //finaliza el envío
     }
   };
 
@@ -80,13 +94,12 @@ export const CreateExpenses = () => {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Nuevo Gasto</Text>
           
-          {/* Campo: Categoría */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Tipo de gasto</Text>
             <TextInput 
               style={styles.textInput} 
               placeholder="Servicios, comida, gusto, transporte, etc."
-              placeholderTextColor="#2a2a2aff"
+              placeholderTextColor="#a0a0a0"
               value={formData.category}
               onChangeText={(text) => handleChange('category', text)}
             />
@@ -98,7 +111,7 @@ export const CreateExpenses = () => {
             <TextInput 
               style={styles.textInput} 
               placeholder="Detalle del gasto"
-              placeholderTextColor="#2a2a2aff"
+              placeholderTextColor="#a0a0a0"
               value={formData.description}
               onChangeText={(text) => handleChange('description', text)}
             />
@@ -110,7 +123,7 @@ export const CreateExpenses = () => {
             <TextInput 
               style={styles.textInput} 
               placeholder="0.00"
-              placeholderTextColor="#2a2a2aff"
+              placeholderTextColor="#a0a0a0"
               keyboardType="numeric"
               value={formData.amount}
               onChangeText={(text) => handleChange('amount', text)}
@@ -135,12 +148,16 @@ export const CreateExpenses = () => {
               />
             )}
           </View>
+
           <View style={styles.buttonsContainer}>
             <Pressable 
-              style={[styles.button, styles.saveButton]} 
+              style={[styles.button, styles.saveButton, isSubmitting && styles.disabledButton]} 
               onPress={handleSubmit}
+              disabled={isSubmitting}
             >
-              <Text style={styles.buttonText}>Registrar gasto</Text>
+              <Text style={styles.buttonText}>
+                {isSubmitting ? 'Registrando...' : 'Registrar gasto'}
+              </Text>
             </Pressable>
 
             <Pressable 
@@ -228,6 +245,10 @@ const styles = StyleSheet.create({
   },
   viewButton: {
     backgroundColor: '#d20e0eff',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc', // Color cuando está deshabilitado
+    opacity: 0.7,
   },
   buttonText: {
     color: 'white',

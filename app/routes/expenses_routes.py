@@ -33,7 +33,7 @@ def create_expense_route():
     return jsonify({
         'message': 'Gasto creado exitosamente',
         'expense': expense.to_dict()
-    }), 201
+    }), 200
 
 @expense_bp.route("/get", methods=["GET"])
 def get_expenses_route():

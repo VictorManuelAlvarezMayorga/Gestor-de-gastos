@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, StyleSheet } from 'react-native';
 
-const API_URL = "//conexion";
+/*link de localhost */
+const API_URL = "http://localhost:5000/api";
 
 export const ViewExpenses = () => {
   const [expenses, setExpenses] = useState([]);
@@ -33,10 +34,14 @@ export const ViewExpenses = () => {
 
   const loadExpenses = async () => {
     try {
-      const response = await fetch('${API_URL}//getExpenses conection');
-      const { expenditures } = await response.json();
-      setExpenses(expenditures);
+      const response = await fetch(`${API_URL}/get`);
+      if (!response.ok) {
+        throw new Error('Error al cargar gastos');
+      }
+      const data = await response.json();
+      setExpenses(data.expenses || []);
     } catch (error) {
+      console.error("Error fetching expenses:", error);
       Alert.alert("Error", "No se pudieron cargar los gastos");
     }
   };
@@ -47,12 +52,15 @@ export const ViewExpenses = () => {
         method: 'DELETE'
       });
       
-      if (response.ok) {
-        Alert.alert("Éxito", "Gasto eliminado");
-        loadExpenses();
+      if (!response.ok) {
+        throw new Error('Error al eliminar');
       }
+      
+      Alert.alert("Éxito", "Gasto eliminado");
+      loadExpenses();
     } catch (error) {
-      Alert.alert("Error");
+      console.error("Error deleting expense:", error);
+      Alert.alert("Error", "No se pudo eliminar el gasto");
     }
   };
 
@@ -63,9 +71,11 @@ export const ViewExpenses = () => {
     }
 
     try {
-      const response = await fetch(`${API_URL}/update/${expense.id}`, {
+      const response = await fetch(`${API_URL}/update/${currentExpense.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           ...form,
           amount: parseFloat(form.amount),
@@ -73,13 +83,16 @@ export const ViewExpenses = () => {
         })
       });
 
-      if (response.ok) {
-        Alert.alert("Éxito", "Gasto actualizado");
-        setIsModalVisible(false);
-        loadExpenses();
+      if (!response.ok) {
+        throw new Error('Error al actualizar');
       }
+
+      Alert.alert("Éxito", "Gasto actualizado");
+      setIsModalVisible(false);
+      loadExpenses();
     } catch (error) {
-      Alert.alert("Error");
+      console.error("Error updating expense:", error);
+      Alert.alert("Error", "No se pudo actualizar el gasto");
     }
   };
 
@@ -99,19 +112,25 @@ export const ViewExpenses = () => {
   };
 
   const ExpenseCard = ({ expense }) => (
-    <View>
-      <Text>{expense.category}</Text>
-      <Text>{expense.description}</Text>
-      <Text>Monto: {expense.amount}</Text>
-      <Text>Fecha: {expense.created_at.split('T')[0]}</Text>
+    <View style={styles.card}>
+      <Text style={styles.category}>{expense.category}</Text>
+      <Text style={styles.text}>{expense.description}</Text>
+      <Text style={styles.text}>Monto: ${expense.amount}</Text>
+      <Text style={styles.text}>Fecha: {expense.created_at.split('T')[0]}</Text>
       
-      <View>
-        <TouchableOpacity onPress={() => openEditForm(expense)}>
-          <Text>Editar</Text>
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity 
+          style={[styles.button, styles.editButton]}
+          onPress={() => openEditForm(expense)}
+        >
+          <Text style={styles.buttonText}>Editar</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity onPress={() => deleteExpense(expense.id)}>
-          <Text>Eliminar</Text>
+        <TouchableOpacity 
+          style={[styles.button, styles.deleteButton]}
+          onPress={() => deleteExpense(expense.id)}
+        >
+          <Text style={styles.buttonText}>Eliminar</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -124,42 +143,53 @@ export const ViewExpenses = () => {
       visible={isModalVisible}
       onRequestClose={() => setIsModalVisible(false)}
     >
-      <View>
-        <View>
-          <Text>Editar Gasto</Text>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Editar Gasto</Text>
           
-          <Text>Categoria:</Text>
+          <Text style={styles.label}>Categoría:</Text>
           <TextInput
+            style={styles.input}
             value={form.category}
             onChangeText={(text) => handleInputChange('category', text)}
           />
           
-          <Text>Descripcion:</Text>
+          <Text style={styles.label}>Descripción:</Text>
           <TextInput
+            style={styles.input}
             value={form.description}
             onChangeText={(text) => handleInputChange('description', text)}
           />
           
-          <Text>Monto:</Text>
+          <Text style={styles.label}>Monto:</Text>
           <TextInput
+            style={styles.input}
             value={form.amount}
             onChangeText={(text) => handleInputChange('amount', text)}
             keyboardType="numeric"
           />
           
-          <Text>Fecha:</Text>
+          <Text style={styles.label}>Fecha (YYYY-MM-DD):</Text>
           <TextInput
+            style={styles.input}
             value={form.created_at}
             onChangeText={(text) => handleInputChange('created_at', text)}
+            placeholder="2023-01-01"
           />
           
-          <View>
-            <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-              <Text>Cancelar</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setIsModalVisible(false)}
+            >
+              <Text style={styles.buttonText}>Cancelar</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity onPress={//updateExpense conexion}>
-              <Text>Guardar</Text>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.saveButton]}
+              onPress={updateExpense}
+            >
+              <Text style={styles.buttonText}>Guardar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -168,13 +198,13 @@ export const ViewExpenses = () => {
   );
 
   return (
-    <View>
-      <View>
-        <Text>Total este mes:</Text>
-        <Text>${getCurrentMonthTotal()}</Text>
+    <View style={styles.container}>
+      <View style={styles.totalContainer}>
+        <Text style={styles.totalText}>Total este mes:</Text>
+        <Text style={styles.totalAmount}>${getCurrentMonthTotal().toFixed(2)}</Text>
       </View>
 
-      <ScrollView>
+      <ScrollView style={styles.scrollView}>
         {expenses.map(expense => (
           <ExpenseCard key={expense.id} expense={expense} />
         ))}
@@ -185,11 +215,15 @@ export const ViewExpenses = () => {
   );
 };
 
+// Estilos (se mantienen iguales a los que proporcionaste)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#041527ff',
     padding: 16,
+  },
+  scrollView: {
+    flex: 1,
   },
   totalContainer: {
     backgroundColor: '#363636ff',
@@ -225,6 +259,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
+  },
+  text: {
+    color: '#ffffff',
+    marginBottom: 8,
   },
   category: {
     fontWeight: 'bold',
